@@ -375,82 +375,166 @@
     }
     
     /**
-     * Get the authenticated transcript URL from the current YouTube page
+     * Get the authenticated transcript URL by fetching the video page
      */
     async function getAuthenticatedTranscriptUrl(videoId) {
         try {
-            // Look for ytInitialPlayerResponse in the page scripts
-            const scripts = document.querySelectorAll('script');
+            console.log('YouTube AI Summary: Getting authenticated URL for video:', videoId);
+            console.log('YouTube AI Summary: Current page:', window.location.href);
             
-            for (const script of scripts) {
-                if (script.textContent && script.textContent.includes('ytInitialPlayerResponse')) {
-                    const text = script.textContent;
-                    
-                    // Extract the ytInitialPlayerResponse object
-                    const match = text.match(/var ytInitialPlayerResponse = ({.*?});/);
-                    if (match) {
-                        try {
-                            const playerResponse = JSON.parse(match[1]);
-                            const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-                            
-                            if (captions && captions.length > 0) {
-                                // Find English caption track
-                                const englishTrack = captions.find(track => 
-                                    track.languageCode === 'en' || 
-                                    track.languageCode === 'en-US' ||
-                                    (track.name?.simpleText && track.name.simpleText.toLowerCase().includes('english'))
-                                );
-                                
-                                if (englishTrack && englishTrack.baseUrl) {
-                                    // Add format parameter for JSON output
-                                    const url = new URL(englishTrack.baseUrl);
-                                    url.searchParams.set('fmt', 'json3');
-                                    return url.toString();
-                                }
-                                
-                                // If no English track, try the first available track
-                                if (captions[0] && captions[0].baseUrl) {
-                                    const url = new URL(captions[0].baseUrl);
-                                    url.searchParams.set('fmt', 'json3');
-                                    return url.toString();
-                                }
-                            }
-                        } catch (parseError) {
-                            console.log('YouTube AI Summary: Error parsing player response:', parseError.message);
-                        }
-                    }
-                    break;
-                }
-            }
-            
-            // Alternative: check if we're on a video page and try to navigate to get the data
+            // Check if we're already on the video page
             if (window.location.pathname === '/watch') {
                 const urlParams = new URLSearchParams(window.location.search);
                 const currentVideoId = urlParams.get('v');
                 
                 if (currentVideoId === videoId) {
-                    // We're on the right video page, try to extract from window data
-                    if (window.ytInitialPlayerResponse) {
-                        const captions = window.ytInitialPlayerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-                        if (captions && captions.length > 0) {
-                            const englishTrack = captions.find(track => 
-                                track.languageCode === 'en' || track.languageCode === 'en-US'
-                            );
-                            
-                            if (englishTrack && englishTrack.baseUrl) {
-                                const url = new URL(englishTrack.baseUrl);
-                                url.searchParams.set('fmt', 'json3');
-                                return url.toString();
-                            }
+                    console.log('YouTube AI Summary: Already on video page, extracting from current page');
+                    return await extractTranscriptUrlFromCurrentPage(videoId);
+                }
+            }
+            
+            // We're not on the video page, so we need to fetch it
+            console.log('YouTube AI Summary: Fetching video page to get transcript data');
+            const videoPageUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            
+            const response = await fetch(videoPageUrl, {
+                headers: {
+                    'User-Agent': navigator.userAgent,
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5'
+                },
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                console.log('YouTube AI Summary: Failed to fetch video page:', response.status);
+                return null;
+            }
+            
+            const html = await response.text();
+            return await extractTranscriptUrlFromHtml(html, videoId);
+            
+        } catch (error) {
+            console.log('YouTube AI Summary: Error getting authenticated URL:', error.message);
+            return null;
+        }
+    }
+    
+    /**
+     * Extract transcript URL from the current page
+     */
+    async function extractTranscriptUrlFromCurrentPage(videoId) {
+        try {
+            // First try window.ytInitialPlayerResponse
+            if (window.ytInitialPlayerResponse) {
+                console.log('YouTube AI Summary: Found window.ytInitialPlayerResponse');
+                const url = extractCaptionUrlFromPlayerResponse(window.ytInitialPlayerResponse, videoId);
+                if (url) return url;
+            }
+            
+            // Then try script tags
+            const scripts = document.querySelectorAll('script');
+            for (const script of scripts) {
+                if (script.textContent && script.textContent.includes('ytInitialPlayerResponse')) {
+                    const text = script.textContent;
+                    const match = text.match(/var ytInitialPlayerResponse = ({.*?});/);
+                    if (match) {
+                        try {
+                            const playerResponse = JSON.parse(match[1]);
+                            console.log('YouTube AI Summary: Found ytInitialPlayerResponse in script');
+                            const url = extractCaptionUrlFromPlayerResponse(playerResponse, videoId);
+                            if (url) return url;
+                        } catch (parseError) {
+                            console.log('YouTube AI Summary: Error parsing player response:', parseError.message);
                         }
                     }
                 }
             }
             
             return null;
+        } catch (error) {
+            console.log('YouTube AI Summary: Error extracting from current page:', error.message);
+            return null;
+        }
+    }
+    
+    /**
+     * Extract transcript URL from HTML content
+     */
+    async function extractTranscriptUrlFromHtml(html, videoId) {
+        try {
+            // Look for ytInitialPlayerResponse in the HTML
+            const match = html.match(/var ytInitialPlayerResponse = ({.*?});/);
+            if (match) {
+                try {
+                    const playerResponse = JSON.parse(match[1]);
+                    console.log('YouTube AI Summary: Found ytInitialPlayerResponse in fetched HTML');
+                    return extractCaptionUrlFromPlayerResponse(playerResponse, videoId);
+                } catch (parseError) {
+                    console.log('YouTube AI Summary: Error parsing player response from HTML:', parseError.message);
+                }
+            }
+            
+            // Alternative: look for window.ytInitialPlayerResponse assignment
+            const windowMatch = html.match(/window\["ytInitialPlayerResponse"\] = ({.*?});/);
+            if (windowMatch) {
+                try {
+                    const playerResponse = JSON.parse(windowMatch[1]);
+                    console.log('YouTube AI Summary: Found window ytInitialPlayerResponse in HTML');
+                    return extractCaptionUrlFromPlayerResponse(playerResponse, videoId);
+                } catch (parseError) {
+                    console.log('YouTube AI Summary: Error parsing window player response:', parseError.message);
+                }
+            }
+            
+            return null;
+        } catch (error) {
+            console.log('YouTube AI Summary: Error extracting from HTML:', error.message);
+            return null;
+        }
+    }
+    
+    /**
+     * Extract caption URL from player response object
+     */
+    function extractCaptionUrlFromPlayerResponse(playerResponse, videoId) {
+        try {
+            const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+            
+            if (!captions || captions.length === 0) {
+                console.log('YouTube AI Summary: No caption tracks found for video:', videoId);
+                return null;
+            }
+            
+            console.log(`YouTube AI Summary: Found ${captions.length} caption tracks`);
+            
+            // Find English caption track
+            const englishTrack = captions.find(track => 
+                track.languageCode === 'en' || 
+                track.languageCode === 'en-US' ||
+                (track.name?.simpleText && track.name.simpleText.toLowerCase().includes('english'))
+            );
+            
+            if (englishTrack && englishTrack.baseUrl) {
+                console.log('YouTube AI Summary: Found English caption track');
+                const url = new URL(englishTrack.baseUrl);
+                url.searchParams.set('fmt', 'json3');
+                return url.toString();
+            }
+            
+            // If no English track, try the first available track
+            if (captions[0] && captions[0].baseUrl) {
+                console.log('YouTube AI Summary: Using first available caption track:', captions[0].languageCode);
+                const url = new URL(captions[0].baseUrl);
+                url.searchParams.set('fmt', 'json3');
+                return url.toString();
+            }
+            
+            console.log('YouTube AI Summary: No usable caption tracks found');
+            return null;
             
         } catch (error) {
-            console.log('YouTube AI Summary: Error getting authenticated URL:', error.message);
+            console.log('YouTube AI Summary: Error extracting caption URL:', error.message);
             return null;
         }
     }
