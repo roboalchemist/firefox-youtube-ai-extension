@@ -656,36 +656,82 @@
      */
     async function extractAuthParametersFromPage() {
         try {
-            // Look for existing successful timedtext requests in the page
+            console.log('YouTube AI Summary: Searching for auth parameters...');
+            
+            // Method 1: Look for pot in existing caption URLs on page
+            if (window.ytInitialPlayerResponse) {
+                const captions = window.ytInitialPlayerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+                if (captions && captions.length > 0) {
+                    for (const track of captions) {
+                        if (track.baseUrl) {
+                            const potMatch = track.baseUrl.match(/[&?]pot=([^&]+)/);
+                            const potcMatch = track.baseUrl.match(/[&?]potc=([^&]+)/);
+                            
+                            if (potMatch) {
+                                const potValue = decodeURIComponent(potMatch[1]);
+                                const potcValue = potcMatch ? decodeURIComponent(potcMatch[1]) : '1';
+                                console.log('YouTube AI Summary: Found pot parameter in existing caption URL');
+                                return `potc=${potcValue}&pot=${encodeURIComponent(potValue)}`;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Method 2: Look for pot parameter patterns in page scripts
             const scripts = document.querySelectorAll('script');
             for (const script of scripts) {
                 const content = script.textContent || '';
                 
-                // Look for pot parameter pattern in the page
-                const potMatch = content.match(/["']pot["']\s*:\s*["']([^"']+)["']/);
-                if (potMatch) {
-                    console.log('YouTube AI Summary: Found pot parameter in page');
-                    return `potc=1&pot=${encodeURIComponent(potMatch[1])}`;
+                // Pattern 1: "pot":"value"
+                const potMatch1 = content.match(/["']pot["']\s*:\s*["']([^"']+)["']/);
+                if (potMatch1) {
+                    console.log('YouTube AI Summary: Found pot parameter in page scripts (pattern 1)');
+                    return `potc=1&pot=${encodeURIComponent(potMatch1[1])}`;
                 }
                 
-                // Alternative pattern
-                const potMatch2 = content.match(/[&?]pot=([^&"']+)/);
+                // Pattern 2: &pot=value or ?pot=value
+                const potMatch2 = content.match(/[&?]pot=([^&"'\s]+)/);
                 if (potMatch2) {
-                    console.log('YouTube AI Summary: Found pot parameter via alternative pattern');
+                    console.log('YouTube AI Summary: Found pot parameter in page scripts (pattern 2)');
                     return `potc=1&pot=${encodeURIComponent(potMatch2[1])}`;
                 }
-            }
-            
-            // Try to extract from window objects
-            if (window.yt && window.yt.config_ && window.yt.config_.PLAYER_CONFIG) {
-                const config = window.yt.config_.PLAYER_CONFIG;
-                if (config.args && config.args.pot) {
-                    console.log('YouTube AI Summary: Found pot parameter in player config');
-                    return `potc=1&pot=${encodeURIComponent(config.args.pot)}`;
+                
+                // Pattern 3: pot%3D (URL encoded)
+                const potMatch3 = content.match(/pot%3D([^&%"'\s]+)/);
+                if (potMatch3) {
+                    console.log('YouTube AI Summary: Found pot parameter in page scripts (pattern 3)');
+                    return `potc=1&pot=${encodeURIComponent(potMatch3[1])}`;
+                }
+                
+                // Pattern 4: Look for the specific timedtext API calls with pot
+                const timedtextMatch = content.match(/api\/timedtext[^"'\s]*[&?]pot=([^&"'\s]+)/);
+                if (timedtextMatch) {
+                    console.log('YouTube AI Summary: Found pot parameter in timedtext URL');
+                    return `potc=1&pot=${encodeURIComponent(timedtextMatch[1])}`;
                 }
             }
             
-            console.log('YouTube AI Summary: Could not find auth parameters');
+            // Method 3: Try to extract from window objects
+            try {
+                if (window.yt && window.yt.config_ && window.yt.config_.PLAYER_CONFIG) {
+                    const config = window.yt.config_.PLAYER_CONFIG;
+                    if (config.args && config.args.pot) {
+                        console.log('YouTube AI Summary: Found pot parameter in player config');
+                        return `potc=1&pot=${encodeURIComponent(config.args.pot)}`;
+                    }
+                }
+                
+                // Try other potential window objects
+                if (window.ytplayer && window.ytplayer.config && window.ytplayer.config.args && window.ytplayer.config.args.pot) {
+                    console.log('YouTube AI Summary: Found pot parameter in ytplayer config');
+                    return `potc=1&pot=${encodeURIComponent(window.ytplayer.config.args.pot)}`;
+                }
+            } catch (windowError) {
+                console.log('YouTube AI Summary: Error checking window objects:', windowError.message);
+            }
+            
+            console.log('YouTube AI Summary: Could not find auth parameters - transcript may not work');
             return null;
         } catch (error) {
             console.log('YouTube AI Summary: Error extracting auth parameters:', error.message);
@@ -732,6 +778,8 @@
                         }
                     }
                     console.log('YouTube AI Summary: Added auth parameters to English track');
+                } else {
+                    console.log('YouTube AI Summary: No auth parameters found, using base URL (may not work)');
                 }
                 
                 return url.toString();
@@ -753,6 +801,8 @@
                         }
                     }
                     console.log('YouTube AI Summary: Added auth parameters to first track');
+                } else {
+                    console.log('YouTube AI Summary: No auth parameters found, using base URL (may not work)');
                 }
                 
                 return url.toString();
