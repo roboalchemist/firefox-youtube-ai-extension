@@ -4,6 +4,12 @@
   "version": "1.1",
   "description": "Adds 'already watched' and video summary buttons to YouTube video thumbnails",
 
+  "applications": {
+    "gecko": {
+      "id": "youtube-already-watched@roboalchemist.github.io"
+    }
+  },
+
   "permissions": [
     "https://www.youtube.com/*",
     "https://youtube.com/*",
