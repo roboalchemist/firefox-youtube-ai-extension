@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Extension Buttons</title>
+    <style>
+        /* Copy the button styles from our extension */
+        .already-watched-btn {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 32px;
+            height: 32px;
+            background: rgba(0, 0, 0, 0.8);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: all 0.2s ease;
+            opacity: 1; /* Force visible for testing */
+            pointer-events: auto;
+        }
+
+        .already-watched-btn::before {
+            content: "✓";
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .test-container {
+            position: relative;
+            width: 300px;
+            height: 200px;
+            background: #f0f0f0;
+            margin: 20px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Extension Button Test</h1>
+    
+    <div class="test-container">
+        <h3>Test Container</h3>
+        <p>Button should appear in bottom-right corner</p>
+        <button class="already-watched-btn" data-tooltip="Mark as already watched"></button>
+    </div>
+
+    <script>
+        // Test script to manually create button like our extension does
+        function createTestButton() {
+            const button = document.createElement('button');
+            button.className = 'already-watched-btn';
+            button.setAttribute('data-tooltip', 'Mark as already watched');
+            button.setAttribute('data-video-id', 'test123');
+            
+            // Add click handler
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Test button clicked!');
+                if (button.classList.contains('clicked')) {
+                    button.classList.remove('clicked');
+                    button.style.background = 'rgba(0, 0, 0, 0.8)';
+                } else {
+                    button.classList.add('clicked');
+                    button.style.background = '#065fd4';
+                }
+            });
+            
+            return button;
+        }
+
+        // Add test button to container
+        setTimeout(() => {
+            const container = document.querySelector('.test-container');
+            const testButton = createTestButton();
+            container.appendChild(testButton);
+            console.log('Test button added');
+        }, 1000);
+    </script>
+</body>
+</html>

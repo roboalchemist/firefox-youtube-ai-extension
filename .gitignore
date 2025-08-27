@@ -1,0 +1,32 @@
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Firefox extension development
+web-ext-artifacts/
+*.zip
+*.xpi
+
+# Temporary files
+*.tmp
+*.temp
+
+# Node modules (if using web-ext)
+node_modules/
+package-lock.json
+
+# Extension signing
+*.pem
+*.crt
+*.key

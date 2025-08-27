@@ -1,0 +1,23 @@
+{
+  "manifest_version": 2,
+  "name": "YouTube Already Watched",
+  "version": "1.0",
+  "description": "Adds an 'already watched' button to YouTube video thumbnails for quick marking",
+  
+  "permissions": [
+    "https://www.youtube.com/*",
+    "https://youtube.com/*"
+  ],
+  
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_end"
+    }
+  ]
+}

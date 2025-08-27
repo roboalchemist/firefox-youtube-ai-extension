@@ -1,0 +1,95 @@
+/* Already Watched Button Styling */
+.already-watched-btn {
+  position: absolute;
+  bottom: -60px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.8);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: all 0.2s ease;
+  opacity: 1;
+  pointer-events: auto;
+  margin-left: 8px; /* Space from adjacent elements */
+}
+
+.already-watched-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.1);
+}
+
+.already-watched-btn.clicked {
+  background: #065fd4;
+}
+
+.already-watched-btn.clicked:hover {
+  background: #0d7377;
+}
+
+/* Icon styling - using a checkmark/eye icon */
+.already-watched-btn::before {
+  content: "✓";
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.already-watched-btn.clicked::before {
+  content: "👁";
+  font-size: 10px;
+}
+
+/* Show button on hover of video container */
+ytd-rich-item-renderer:hover .already-watched-btn,
+ytd-compact-video-renderer:hover .already-watched-btn,
+ytd-grid-video-renderer:hover .already-watched-btn,
+.ytd-rich-grid-media:hover .already-watched-btn,
+#dismissible:hover .already-watched-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Ensure video thumbnails and containers have relative positioning */
+ytd-thumbnail,
+#thumbnail,
+ytd-rich-item-renderer,
+#meta,
+#metadata,
+#details,
+yt-lockup-metadata-view-model {
+  position: relative;
+  min-height: 60px; /* Ensure enough height for bottom positioning */
+}
+
+/* Tooltip styling */
+.already-watched-btn[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 5px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  font-size: 12px;
+  white-space: nowrap;
+  border-radius: 4px;
+  z-index: 1001;
+}
+
+.already-watched-btn[data-tooltip]:hover::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  right: 8px;
+  margin-bottom: -1px;
+  border: 4px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.9);
+  z-index: 1001;
+}
