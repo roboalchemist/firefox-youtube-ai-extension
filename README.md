@@ -77,7 +77,6 @@ For permanent installation, the extension needs to be signed by Mozilla. You can
 
 3. **Customize summary settings**:
    - Edit the summary prompt to match your preferences
-   - Set maximum summary length (50-1000 words)
    - Enable/disable features as needed
 
 ## 🛠 Technical Details

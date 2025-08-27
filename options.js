@@ -8,7 +8,6 @@ const DEFAULT_SETTINGS = {
     apiKey: '',
     model: 'google/gemini-2.5-flash-lite',
     summaryPrompt: 'Please provide a concise and informative summary of this video transcript. Focus on the main points, key insights, and important information. Structure the summary with clear sections if the video covers multiple topics. Keep it engaging and easy to understand.',
-    maxLength: 300,
     enableSummary: true,
     autoExtractTranscript: true
 };
@@ -24,7 +23,6 @@ async function loadSettings() {
         document.getElementById('apiKey').value = settings.apiKey || '';
         document.getElementById('model').value = settings.model || DEFAULT_SETTINGS.model;
         document.getElementById('summaryPrompt').value = settings.summaryPrompt || DEFAULT_SETTINGS.summaryPrompt;
-        document.getElementById('maxLength').value = settings.maxLength || DEFAULT_SETTINGS.maxLength;
         document.getElementById('enableSummary').checked = settings.enableSummary !== false;
         document.getElementById('autoExtractTranscript').checked = settings.autoExtractTranscript !== false;
         
@@ -54,7 +52,6 @@ async function saveSettings(event) {
             apiKey: document.getElementById('apiKey').value.trim(),
             model: document.getElementById('model').value,
             summaryPrompt: document.getElementById('summaryPrompt').value.trim(),
-            maxLength: parseInt(document.getElementById('maxLength').value) || DEFAULT_SETTINGS.maxLength,
             enableSummary: document.getElementById('enableSummary').checked,
             autoExtractTranscript: document.getElementById('autoExtractTranscript').checked
         };
@@ -62,10 +59,6 @@ async function saveSettings(event) {
         // Validate settings
         if (settings.enableSummary && !settings.apiKey) {
             throw new Error('API Key is required when summary feature is enabled');
-        }
-        
-        if (settings.maxLength < 50 || settings.maxLength > 1000) {
-            throw new Error('Maximum length must be between 50 and 1000 words');
         }
         
         if (!settings.summaryPrompt) {
@@ -160,7 +153,6 @@ async function testApiKey() {
 function setupValidation() {
     const apiKeyInput = document.getElementById('apiKey');
     const enableSummaryCheck = document.getElementById('enableSummary');
-    const maxLengthInput = document.getElementById('maxLength');
     
     // Validate API key format
     apiKeyInput.addEventListener('input', function() {
@@ -177,16 +169,6 @@ function setupValidation() {
         apiKeyInput.disabled = !this.checked;
         if (!this.checked) {
             apiKeyInput.style.borderColor = '#ddd';
-        }
-    });
-    
-    // Validate max length
-    maxLengthInput.addEventListener('input', function() {
-        const value = parseInt(this.value);
-        if (value < 50 || value > 1000) {
-            this.style.borderColor = '#dc3545';
-        } else {
-            this.style.borderColor = '#ddd';
         }
     });
 }

@@ -404,7 +404,6 @@
                         content: prompt
                     }
                 ],
-                max_tokens: Math.min(settings.maxLength * 2, 4000),
                 temperature: 0.7
             })
         });
@@ -433,7 +432,6 @@
                 apiKey: '',
                 model: 'google/gemini-2.5-flash-lite',
                 summaryPrompt: 'Please provide a concise and informative summary of this video transcript. Focus on the main points, key insights, and important information.',
-                maxLength: 300,
                 autoExtractTranscript: true
             };
             
@@ -447,7 +445,6 @@
                 apiKey: '',
                 model: 'google/gemini-2.5-flash-lite',
                 summaryPrompt: 'Please provide a concise summary of this video.',
-                maxLength: 300,
                 autoExtractTranscript: true
             };
         }
