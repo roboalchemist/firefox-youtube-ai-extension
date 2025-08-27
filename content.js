@@ -325,88 +325,209 @@
     }
     
     /**
-     * Extract video transcript from YouTube using the authenticated API
+     * Extract video transcript from YouTube using modern methods inspired by youtube-caption-extractor
      */
     async function extractVideoTranscript(videoId) {
         try {
             console.log('YouTube AI Summary: Extracting transcript for video:', videoId);
             
-            // First, try to get the authenticated transcript URL from the page
+            // Method 1: Try authenticated URL from current page
             const authenticatedUrl = await getAuthenticatedTranscriptUrl(videoId);
-            
             if (authenticatedUrl) {
-                console.log('YouTube AI Summary: Found authenticated transcript URL');
-                console.log('YouTube AI Summary: URL:', authenticatedUrl.substring(0, 100) + '...');
-                
-                const response = await fetch(authenticatedUrl, {
-                    headers: {
-                        'User-Agent': navigator.userAgent,
-                        'Referer': `https://www.youtube.com/watch?v=${videoId}`,
-                        'Accept': 'application/json, text/plain, */*',
-                        'Accept-Language': 'en-US,en;q=0.9',
-                        'Origin': 'https://www.youtube.com',
-                        'Sec-Fetch-Dest': 'empty',
-                        'Sec-Fetch-Mode': 'cors',
-                        'Sec-Fetch-Site': 'same-origin'
-                    },
-                    credentials: 'include'
-                });
-                
-                console.log('YouTube AI Summary: Response status:', response.status);
-                console.log('YouTube AI Summary: Response headers:', Object.fromEntries(response.headers.entries()));
-                
-                if (response.ok) {
-                    const responseText = await response.text();
-                    console.log('YouTube AI Summary: Response length:', responseText.length);
-                    console.log('YouTube AI Summary: Response preview:', responseText.substring(0, 200));
-                    
-                    if (responseText.length === 0) {
-                        console.log('YouTube AI Summary: Empty response received');
-                        return null;
-                    }
-                    
-                    try {
-                        const data = JSON.parse(responseText);
-                        if (data && data.events) {
-                            const transcript = data.events
-                                .filter(event => event.segs)
-                                .map(event => 
-                                    event.segs.map(seg => seg.utf8).join('')
-                                )
-                                .join(' ')
-                                .replace(/\s+/g, ' ')
-                                .trim();
-                            
-                            console.log('YouTube AI Summary: Transcript extracted successfully, length:', transcript.length);
-                            return transcript;
-                        } else {
-                            console.log('YouTube AI Summary: No events found in response data');
-                            console.log('YouTube AI Summary: Response structure:', Object.keys(data || {}));
-                        }
-                    } catch (parseError) {
-                        console.log('YouTube AI Summary: JSON parse error:', parseError.message);
-                        console.log('YouTube AI Summary: Raw response:', responseText);
-                        
-                        // Try to parse as XML (some transcripts come as XML)
-                        if (responseText.includes('<transcript>') || responseText.includes('<text')) {
-                            console.log('YouTube AI Summary: Attempting XML parsing');
-                            return parseXmlTranscript(responseText);
-                        }
-                    }
-                } else {
-                    console.log('YouTube AI Summary: HTTP error:', response.status, response.statusText);
-                    const errorText = await response.text();
-                    console.log('YouTube AI Summary: Error response:', errorText.substring(0, 200));
-                }
+                console.log('YouTube AI Summary: Trying authenticated URL method');
+                const result = await fetchTranscriptFromUrl(authenticatedUrl, videoId);
+                if (result) return result;
             }
             
-            // Fallback to page-based extraction
+            // Method 2: Try engagement panel transcript API
+            console.log('YouTube AI Summary: Trying engagement panel method');
+            const engagementResult = await fetchTranscriptFromEngagementPanel(videoId);
+            if (engagementResult) return engagementResult;
+            
+            // Method 3: Try direct timedtext API with various formats
+            console.log('YouTube AI Summary: Trying direct API methods');
+            const directResult = await fetchTranscriptDirect(videoId);
+            if (directResult) return directResult;
+            
+            // Method 4: Fallback to page-based extraction
             console.log('YouTube AI Summary: Falling back to page-based extraction');
             return await extractTranscriptFromPage(videoId);
             
         } catch (error) {
             console.log('YouTube AI Summary: Transcript extraction failed:', error.message);
             return await extractTranscriptFromPage(videoId);
+        }
+    }
+    
+    /**
+     * Fetch transcript from a given URL with proper error handling
+     */
+    async function fetchTranscriptFromUrl(url, videoId) {
+        try {
+            console.log('YouTube AI Summary: Fetching from URL:', url.substring(0, 100) + '...');
+            
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': navigator.userAgent,
+                    'Referer': `https://www.youtube.com/watch?v=${videoId}`,
+                    'Accept': '*/*',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Origin': 'https://www.youtube.com',
+                    'Sec-Fetch-Dest': 'empty',
+                    'Sec-Fetch-Mode': 'cors',
+                    'Sec-Fetch-Site': 'same-origin',
+                    'Cache-Control': 'no-cache'
+                },
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                console.log('YouTube AI Summary: HTTP error:', response.status);
+                return null;
+            }
+            
+            const responseText = await response.text();
+            console.log('YouTube AI Summary: Response length:', responseText.length);
+            
+            if (responseText.length === 0) {
+                console.log('YouTube AI Summary: Empty response');
+                return null;
+            }
+            
+            // Try JSON parsing first
+            try {
+                const data = JSON.parse(responseText);
+                if (data && data.events) {
+                    return parseJsonTranscript(data.events);
+                }
+            } catch (e) {
+                // Try XML parsing
+                if (responseText.includes('<transcript>') || responseText.includes('<text')) {
+                    return parseXmlTranscript(responseText);
+                }
+            }
+            
+            return null;
+            
+        } catch (error) {
+            console.log('YouTube AI Summary: Error fetching from URL:', error.message);
+            return null;
+        }
+    }
+    
+    /**
+     * Try YouTube's engagement panel transcript API
+     */
+    async function fetchTranscriptFromEngagementPanel(videoId) {
+        try {
+            // This is based on the youtube-caption-extractor approach
+            const apiUrl = 'https://www.youtube.com/youtubei/v1/get_transcript';
+            
+            const requestBody = {
+                context: {
+                    client: {
+                        clientName: 'WEB',
+                        clientVersion: '2.20250821.07.00'
+                    }
+                },
+                params: btoa(`\n\x0b${videoId}`)
+            };
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent': navigator.userAgent,
+                    'Origin': 'https://www.youtube.com',
+                    'Referer': `https://www.youtube.com/watch?v=${videoId}`
+                },
+                body: JSON.stringify(requestBody),
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                console.log('YouTube AI Summary: Engagement panel API failed:', response.status);
+                return null;
+            }
+            
+            const data = await response.json();
+            
+            // Parse the engagement panel response
+            const transcriptData = data?.actions?.[0]?.updateEngagementPanelAction?.content?.transcriptRenderer?.content?.transcriptSearchPanelRenderer?.body?.transcriptSegmentListRenderer?.initialSegments;
+            
+            if (transcriptData && transcriptData.length > 0) {
+                const transcript = transcriptData
+                    .map(segment => segment?.transcriptSegmentRenderer?.snippet?.runs?.[0]?.text)
+                    .filter(text => text)
+                    .join(' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                
+                if (transcript.length > 0) {
+                    console.log('YouTube AI Summary: Engagement panel transcript extracted, length:', transcript.length);
+                    return transcript;
+                }
+            }
+            
+            return null;
+            
+        } catch (error) {
+            console.log('YouTube AI Summary: Engagement panel error:', error.message);
+            return null;
+        }
+    }
+    
+    /**
+     * Try direct timedtext API calls with various parameters
+     */
+    async function fetchTranscriptDirect(videoId) {
+        const formats = ['json3', 'srv3', 'vtt', ''];
+        const languages = ['en', 'en-US', ''];
+        
+        for (const fmt of formats) {
+            for (const lang of languages) {
+                try {
+                    let url = `https://www.youtube.com/api/timedtext?v=${videoId}`;
+                    if (lang) url += `&lang=${lang}`;
+                    if (fmt) url += `&fmt=${fmt}`;
+                    
+                    const result = await fetchTranscriptFromUrl(url, videoId);
+                    if (result) {
+                        console.log(`YouTube AI Summary: Direct API success with fmt=${fmt}, lang=${lang}`);
+                        return result;
+                    }
+                } catch (e) {
+                    // Continue to next format/language combination
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Parse JSON transcript events
+     */
+    function parseJsonTranscript(events) {
+        try {
+            const transcript = events
+                .filter(event => event.segs)
+                .map(event => 
+                    event.segs.map(seg => seg.utf8).join('')
+                )
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            
+            if (transcript.length > 0) {
+                console.log('YouTube AI Summary: JSON transcript parsed, length:', transcript.length);
+                return transcript;
+            }
+            
+            return null;
+        } catch (error) {
+            console.log('YouTube AI Summary: Error parsing JSON transcript:', error.message);
+            return null;
         }
     }
     
