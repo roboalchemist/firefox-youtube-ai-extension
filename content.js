@@ -1041,7 +1041,7 @@
                 <div class="yt-ai-summary">${formatSummary(summary)}</div>
                 
                 <div class="yt-ai-transcript-section">
-                    <div class="transcript-header" onclick="toggleTranscript(this)">
+                    <div class="transcript-header">
                         <span class="transcript-toggle">▶</span>
                         <span class="transcript-title">📜 Source Transcript</span>
                         <span class="transcript-info">(${transcript.length} characters)</span>
@@ -1057,19 +1057,22 @@
                 <button class="yt-ai-modal-button primary" data-action="mark-watched">Mark as Watched</button>
             `;
             
-            // Add toggle transcript functionality
-            window.toggleTranscript = function(header) {
-                const content = header.nextElementSibling;
-                const toggle = header.querySelector('.transcript-toggle');
-                
-                if (content.style.display === 'none') {
-                    content.style.display = 'block';
-                    toggle.textContent = '▼';
-                } else {
-                    content.style.display = 'none';
-                    toggle.textContent = '▶';
-                }
-            };
+            // Add toggle transcript functionality with proper event listener
+            const transcriptHeader = body.querySelector('.transcript-header');
+            if (transcriptHeader) {
+                transcriptHeader.addEventListener('click', function() {
+                    const content = this.nextElementSibling;
+                    const toggle = this.querySelector('.transcript-toggle');
+                    
+                    if (content.style.display === 'none' || content.style.display === '') {
+                        content.style.display = 'block';
+                        toggle.textContent = '▼';
+                    } else {
+                        content.style.display = 'none';
+                        toggle.textContent = '▶';
+                    }
+                });
+            }
             
             // Add mark as watched functionality
             const markWatchedBtn = footer.querySelector('[data-action="mark-watched"]');

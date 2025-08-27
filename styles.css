@@ -340,6 +340,7 @@ yt-lockup-metadata-view-model {
   gap: 8px;
   transition: background-color 0.2s ease;
   user-select: none;
+  border-radius: 6px 6px 0 0;
 }
 
 .transcript-header:hover {
