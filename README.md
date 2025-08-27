@@ -14,6 +14,7 @@ A Firefox extension that adds an "Already Watched" button to YouTube video thumb
 - **Instant summaries**: Get AI-powered summaries of any YouTube video with one click
 - **Multiple AI models**: Choose from Google Gemini, Claude, GPT-4, and more via OpenRouter
 - **Automatic transcript extraction**: Extracts video transcripts from YouTube's API
+- **Transcript viewing**: See the extracted transcript before and after summary generation
 - **Customizable prompts**: Configure your own summary style and length
 - **Modal interface**: Clean, readable popup with formatted summaries
 - **Quick actions**: Mark videos as watched directly from the summary modal
@@ -58,9 +59,11 @@ For permanent installation, the extension needs to be signed by Mozilla. You can
 1. **Configure your API key** in the extension settings (see Configuration section below)
 2. **Look for the "📄" button** at the bottom-left of each video's metadata area
 3. **Click the button** to generate an AI summary
-4. **Wait for processing** (transcript extraction + AI generation)
-5. **Read the summary** in the popup modal
-6. **Optionally mark as watched** directly from the summary modal
+4. **View the extracted transcript** (shown first for 2 seconds, or click "Skip to Summary")
+5. **Wait for AI processing** (automatic after transcript review)
+6. **Read the summary** in the popup modal
+7. **Navigate between summary and transcript** using the "View Transcript" button
+8. **Optionally mark as watched** directly from the summary modal
 
 ## ⚙️ Configuration
 

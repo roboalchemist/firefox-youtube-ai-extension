@@ -283,10 +283,30 @@
                 throw new Error('Could not extract video transcript. The video may not have captions available.');
             }
             
+            // Show transcript first
+            updateModalContent(modal, 'transcript', transcript, videoId);
+            
+            // Wait a moment to let user see the transcript, then generate summary
+            // Allow user to skip the wait with the skip button
+            await new Promise(resolve => {
+                const timer = setTimeout(resolve, 2000);
+                const checkSkip = setInterval(() => {
+                    if (modal.getAttribute('data-skip') === 'true') {
+                        clearTimeout(timer);
+                        clearInterval(checkSkip);
+                        resolve();
+                    }
+                }, 100);
+            });
+            
             updateModalContent(modal, 'loading', 'Generating AI summary...');
             
             // Generate summary using OpenRouter API
             const summary = await generateSummary(transcript, settings);
+            
+            // Store transcript and summary in modal for later access
+            modal.setAttribute('data-transcript', transcript);
+            modal.setAttribute('data-summary', summary);
             
             // Show summary in modal
             updateModalContent(modal, 'summary', summary, videoId);
@@ -517,10 +537,33 @@
                 </div>
             `;
             footer.innerHTML = '';
+        } else if (type === 'transcript') {
+            const truncatedTranscript = content.length > 2000 ? content.substring(0, 2000) + '...' : content;
+            body.innerHTML = `
+                <div class="yt-ai-transcript">
+                    <p><strong>📜 Extracted Transcript</strong> (${content.length} characters)</p>
+                    <div class="transcript-content">${escapeHtml(truncatedTranscript)}</div>
+                    <p><em>Generating AI summary...</em></p>
+                </div>
+            `;
+            footer.innerHTML = `
+                <button class="yt-ai-modal-button secondary" data-action="close">Cancel</button>
+                <button class="yt-ai-modal-button secondary" data-action="skip-summary">Skip to Summary</button>
+            `;
+            
+            // Add skip functionality
+            const skipBtn = footer.querySelector('[data-action="skip-summary"]');
+            if (skipBtn) {
+                skipBtn.addEventListener('click', () => {
+                    // Trigger immediate summary generation by resolving the timeout
+                    modal.setAttribute('data-skip', 'true');
+                });
+            }
         } else if (type === 'summary') {
             body.innerHTML = `<div class="yt-ai-summary">${formatSummary(content)}</div>`;
             footer.innerHTML = `
                 <button class="yt-ai-modal-button secondary" data-action="close">Close</button>
+                <button class="yt-ai-modal-button secondary" data-action="view-transcript">View Transcript</button>
                 <button class="yt-ai-modal-button primary" data-action="mark-watched">Mark as Watched</button>
             `;
             
@@ -534,6 +577,39 @@
                         handleAlreadyWatchedClick(videoId, watchedButton);
                     }
                     modal.remove();
+                });
+            }
+            
+            // Add view transcript functionality
+            const viewTranscriptBtn = footer.querySelector('[data-action="view-transcript"]');
+            if (viewTranscriptBtn) {
+                viewTranscriptBtn.addEventListener('click', () => {
+                    const transcript = modal.getAttribute('data-transcript');
+                    if (transcript) {
+                        updateModalContent(modal, 'transcript-only', transcript);
+                    }
+                });
+            }
+        } else if (type === 'transcript-only') {
+            body.innerHTML = `
+                <div class="yt-ai-transcript">
+                    <p><strong>📜 Full Video Transcript</strong> (${content.length} characters)</p>
+                    <div class="transcript-content full-transcript">${escapeHtml(content)}</div>
+                </div>
+            `;
+            footer.innerHTML = `
+                <button class="yt-ai-modal-button secondary" data-action="close">Close</button>
+                <button class="yt-ai-modal-button secondary" data-action="back-to-summary">Back to Summary</button>
+            `;
+            
+            // Add back to summary functionality
+            const backBtn = footer.querySelector('[data-action="back-to-summary"]');
+            if (backBtn) {
+                backBtn.addEventListener('click', () => {
+                    const summary = modal.getAttribute('data-summary');
+                    if (summary) {
+                        updateModalContent(modal, 'summary', summary, videoId);
+                    }
                 });
             }
         } else if (type === 'error') {
@@ -565,6 +641,15 @@
             .replace(/<p><\/p>/g, '')
             .replace(/<p>(<h[1-3]>)/g, '$1')
             .replace(/(<\/h[1-3]>)<\/p>/g, '$1');
+    }
+    
+    /**
+     * Escape HTML characters to prevent XSS
+     */
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     /**

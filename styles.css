@@ -275,3 +275,50 @@ yt-lockup-metadata-view-model {
   border-radius: 4px;
   border-left: 4px solid #d32f2f;
 }
+
+/* Transcript styling */
+.yt-ai-transcript {
+  line-height: 1.6;
+  color: #333;
+}
+
+.yt-ai-transcript p {
+  margin-bottom: 12px;
+}
+
+.transcript-content {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.transcript-content.full-transcript {
+  max-height: 60vh;
+  font-size: 14px;
+}
+
+.transcript-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.transcript-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.transcript-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.transcript-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
