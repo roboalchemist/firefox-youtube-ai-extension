@@ -585,7 +585,7 @@
             // First try window.ytInitialPlayerResponse
             if (window.ytInitialPlayerResponse) {
                 console.log('YouTube AI Summary: Found window.ytInitialPlayerResponse');
-                const url = extractCaptionUrlFromPlayerResponse(window.ytInitialPlayerResponse, videoId);
+                const url = await extractCaptionUrlFromPlayerResponse(window.ytInitialPlayerResponse, videoId);
                 if (url) return url;
             }
             
@@ -599,7 +599,7 @@
                         try {
                             const playerResponse = JSON.parse(match[1]);
                             console.log('YouTube AI Summary: Found ytInitialPlayerResponse in script');
-                            const url = extractCaptionUrlFromPlayerResponse(playerResponse, videoId);
+                            const url = await extractCaptionUrlFromPlayerResponse(playerResponse, videoId);
                             if (url) return url;
                         } catch (parseError) {
                             console.log('YouTube AI Summary: Error parsing player response:', parseError.message);
@@ -626,7 +626,7 @@
                 try {
                     const playerResponse = JSON.parse(match[1]);
                     console.log('YouTube AI Summary: Found ytInitialPlayerResponse in fetched HTML');
-                    return extractCaptionUrlFromPlayerResponse(playerResponse, videoId);
+                    return await extractCaptionUrlFromPlayerResponse(playerResponse, videoId);
                 } catch (parseError) {
                     console.log('YouTube AI Summary: Error parsing player response from HTML:', parseError.message);
                 }
@@ -638,7 +638,7 @@
                 try {
                     const playerResponse = JSON.parse(windowMatch[1]);
                     console.log('YouTube AI Summary: Found window ytInitialPlayerResponse in HTML');
-                    return extractCaptionUrlFromPlayerResponse(playerResponse, videoId);
+                    return await extractCaptionUrlFromPlayerResponse(playerResponse, videoId);
                 } catch (parseError) {
                     console.log('YouTube AI Summary: Error parsing window player response:', parseError.message);
                 }
@@ -652,9 +652,51 @@
     }
     
     /**
+     * Extract authentication parameters (potc, pot) that are required for transcript access
+     */
+    async function extractAuthParametersFromPage() {
+        try {
+            // Look for existing successful timedtext requests in the page
+            const scripts = document.querySelectorAll('script');
+            for (const script of scripts) {
+                const content = script.textContent || '';
+                
+                // Look for pot parameter pattern in the page
+                const potMatch = content.match(/["']pot["']\s*:\s*["']([^"']+)["']/);
+                if (potMatch) {
+                    console.log('YouTube AI Summary: Found pot parameter in page');
+                    return `potc=1&pot=${encodeURIComponent(potMatch[1])}`;
+                }
+                
+                // Alternative pattern
+                const potMatch2 = content.match(/[&?]pot=([^&"']+)/);
+                if (potMatch2) {
+                    console.log('YouTube AI Summary: Found pot parameter via alternative pattern');
+                    return `potc=1&pot=${encodeURIComponent(potMatch2[1])}`;
+                }
+            }
+            
+            // Try to extract from window objects
+            if (window.yt && window.yt.config_ && window.yt.config_.PLAYER_CONFIG) {
+                const config = window.yt.config_.PLAYER_CONFIG;
+                if (config.args && config.args.pot) {
+                    console.log('YouTube AI Summary: Found pot parameter in player config');
+                    return `potc=1&pot=${encodeURIComponent(config.args.pot)}`;
+                }
+            }
+            
+            console.log('YouTube AI Summary: Could not find auth parameters');
+            return null;
+        } catch (error) {
+            console.log('YouTube AI Summary: Error extracting auth parameters:', error.message);
+            return null;
+        }
+    }
+
+    /**
      * Extract caption URL from player response object
      */
-    function extractCaptionUrlFromPlayerResponse(playerResponse, videoId) {
+    async function extractCaptionUrlFromPlayerResponse(playerResponse, videoId) {
         try {
             const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
             
@@ -664,6 +706,9 @@
             }
             
             console.log(`YouTube AI Summary: Found ${captions.length} caption tracks`);
+            
+            // Extract auth parameters first
+            const authParams = await extractAuthParametersFromPage();
             
             // Find English caption track
             const englishTrack = captions.find(track => 
@@ -676,6 +721,19 @@
                 console.log('YouTube AI Summary: Found English caption track');
                 const url = new URL(englishTrack.baseUrl);
                 url.searchParams.set('fmt', 'json3');
+                
+                // Add authentication parameters if available
+                if (authParams) {
+                    const authPairs = authParams.split('&');
+                    for (const pair of authPairs) {
+                        const [key, value] = pair.split('=');
+                        if (key && value) {
+                            url.searchParams.set(key, decodeURIComponent(value));
+                        }
+                    }
+                    console.log('YouTube AI Summary: Added auth parameters to English track');
+                }
+                
                 return url.toString();
             }
             
@@ -684,6 +742,19 @@
                 console.log('YouTube AI Summary: Using first available caption track:', captions[0].languageCode);
                 const url = new URL(captions[0].baseUrl);
                 url.searchParams.set('fmt', 'json3');
+                
+                // Add authentication parameters if available
+                if (authParams) {
+                    const authPairs = authParams.split('&');
+                    for (const pair of authPairs) {
+                        const [key, value] = pair.split('=');
+                        if (key && value) {
+                            url.searchParams.set(key, decodeURIComponent(value));
+                        }
+                    }
+                    console.log('YouTube AI Summary: Added auth parameters to first track');
+                }
+                
                 return url.toString();
             }
             
