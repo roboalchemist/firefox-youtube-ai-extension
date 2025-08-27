@@ -626,7 +626,7 @@
                 try {
                     const playerResponse = JSON.parse(match[1]);
                     console.log('YouTube AI Summary: Found ytInitialPlayerResponse in fetched HTML');
-                    return await extractCaptionUrlFromPlayerResponse(playerResponse, videoId);
+                    return await extractCaptionUrlFromPlayerResponse(playerResponse, videoId, html);
                 } catch (parseError) {
                     console.log('YouTube AI Summary: Error parsing player response from HTML:', parseError.message);
                 }
@@ -638,7 +638,7 @@
                 try {
                     const playerResponse = JSON.parse(windowMatch[1]);
                     console.log('YouTube AI Summary: Found window ytInitialPlayerResponse in HTML');
-                    return await extractCaptionUrlFromPlayerResponse(playerResponse, videoId);
+                    return await extractCaptionUrlFromPlayerResponse(playerResponse, videoId, html);
                 } catch (parseError) {
                     console.log('YouTube AI Summary: Error parsing window player response:', parseError.message);
                 }
@@ -653,13 +653,64 @@
     
     /**
      * Extract authentication parameters (potc, pot) that are required for transcript access
+     * @param {string} htmlContent - Optional HTML content to search (when not on current page)
      */
-    async function extractAuthParametersFromPage() {
+    async function extractAuthParametersFromPage(htmlContent = null) {
         try {
             console.log('YouTube AI Summary: Searching for auth parameters...');
             
-            // Method 1: Look for pot in existing caption URLs on page
-            if (window.ytInitialPlayerResponse) {
+            // If we have HTML content (from fetched page), search there first
+            if (htmlContent) {
+                console.log('YouTube AI Summary: Searching in fetched HTML content');
+                
+                // Look for ytInitialPlayerResponse in the HTML and extract caption URLs
+                const playerResponseMatch = htmlContent.match(/var ytInitialPlayerResponse = ({.*?});/) || 
+                                          htmlContent.match(/window\["ytInitialPlayerResponse"\] = ({.*?});/);
+                
+                if (playerResponseMatch) {
+                    try {
+                        const playerResponse = JSON.parse(playerResponseMatch[1]);
+                        const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+                        
+                        if (captions && captions.length > 0) {
+                            for (const track of captions) {
+                                if (track.baseUrl) {
+                                    const potMatch = track.baseUrl.match(/[&?]pot=([^&]+)/);
+                                    const potcMatch = track.baseUrl.match(/[&?]potc=([^&]+)/);
+                                    
+                                    if (potMatch) {
+                                        const potValue = decodeURIComponent(potMatch[1]);
+                                        const potcValue = potcMatch ? decodeURIComponent(potcMatch[1]) : '1';
+                                        console.log('YouTube AI Summary: Found pot parameter in fetched caption URL');
+                                        return `potc=${potcValue}&pot=${encodeURIComponent(potValue)}`;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (parseError) {
+                        console.log('YouTube AI Summary: Error parsing player response from HTML:', parseError.message);
+                    }
+                }
+                
+                // Search for pot parameters in the HTML content using regex
+                const patterns = [
+                    /["']pot["']\s*:\s*["']([^"']+)["']/,  // "pot":"value"
+                    /[&?]pot=([^&"'\s]+)/,                  // &pot=value or ?pot=value
+                    /pot%3D([^&%"'\s]+)/,                   // pot%3D (URL encoded)
+                    /api\/timedtext[^"'\s]*[&?]pot=([^&"'\s]+)/ // timedtext URL with pot
+                ];
+                
+                for (let i = 0; i < patterns.length; i++) {
+                    const match = htmlContent.match(patterns[i]);
+                    if (match) {
+                        console.log(`YouTube AI Summary: Found pot parameter in HTML (pattern ${i + 1})`);
+                        return `potc=1&pot=${encodeURIComponent(match[1])}`;
+                    }
+                }
+            }
+            
+            // Method 1: Look for pot in existing caption URLs on current page
+            if (!htmlContent && window.ytInitialPlayerResponse) {
                 const captions = window.ytInitialPlayerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
                 if (captions && captions.length > 0) {
                     for (const track of captions) {
@@ -670,7 +721,7 @@
                             if (potMatch) {
                                 const potValue = decodeURIComponent(potMatch[1]);
                                 const potcValue = potcMatch ? decodeURIComponent(potcMatch[1]) : '1';
-                                console.log('YouTube AI Summary: Found pot parameter in existing caption URL');
+                                console.log('YouTube AI Summary: Found pot parameter in current page caption URL');
                                 return `potc=${potcValue}&pot=${encodeURIComponent(potValue)}`;
                             }
                         }
@@ -678,57 +729,59 @@
                 }
             }
             
-            // Method 2: Look for pot parameter patterns in page scripts
-            const scripts = document.querySelectorAll('script');
-            for (const script of scripts) {
-                const content = script.textContent || '';
-                
-                // Pattern 1: "pot":"value"
-                const potMatch1 = content.match(/["']pot["']\s*:\s*["']([^"']+)["']/);
-                if (potMatch1) {
-                    console.log('YouTube AI Summary: Found pot parameter in page scripts (pattern 1)');
-                    return `potc=1&pot=${encodeURIComponent(potMatch1[1])}`;
-                }
-                
-                // Pattern 2: &pot=value or ?pot=value
-                const potMatch2 = content.match(/[&?]pot=([^&"'\s]+)/);
-                if (potMatch2) {
-                    console.log('YouTube AI Summary: Found pot parameter in page scripts (pattern 2)');
-                    return `potc=1&pot=${encodeURIComponent(potMatch2[1])}`;
-                }
-                
-                // Pattern 3: pot%3D (URL encoded)
-                const potMatch3 = content.match(/pot%3D([^&%"'\s]+)/);
-                if (potMatch3) {
-                    console.log('YouTube AI Summary: Found pot parameter in page scripts (pattern 3)');
-                    return `potc=1&pot=${encodeURIComponent(potMatch3[1])}`;
-                }
-                
-                // Pattern 4: Look for the specific timedtext API calls with pot
-                const timedtextMatch = content.match(/api\/timedtext[^"'\s]*[&?]pot=([^&"'\s]+)/);
-                if (timedtextMatch) {
-                    console.log('YouTube AI Summary: Found pot parameter in timedtext URL');
-                    return `potc=1&pot=${encodeURIComponent(timedtextMatch[1])}`;
-                }
-            }
-            
-            // Method 3: Try to extract from window objects
-            try {
-                if (window.yt && window.yt.config_ && window.yt.config_.PLAYER_CONFIG) {
-                    const config = window.yt.config_.PLAYER_CONFIG;
-                    if (config.args && config.args.pot) {
-                        console.log('YouTube AI Summary: Found pot parameter in player config');
-                        return `potc=1&pot=${encodeURIComponent(config.args.pot)}`;
+            // Method 2: Look for pot parameter patterns in current page scripts (only if no HTML content provided)
+            if (!htmlContent) {
+                const scripts = document.querySelectorAll('script');
+                for (const script of scripts) {
+                    const content = script.textContent || '';
+                    
+                    // Pattern 1: "pot":"value"
+                    const potMatch1 = content.match(/["']pot["']\s*:\s*["']([^"']+)["']/);
+                    if (potMatch1) {
+                        console.log('YouTube AI Summary: Found pot parameter in page scripts (pattern 1)');
+                        return `potc=1&pot=${encodeURIComponent(potMatch1[1])}`;
+                    }
+                    
+                    // Pattern 2: &pot=value or ?pot=value
+                    const potMatch2 = content.match(/[&?]pot=([^&"'\s]+)/);
+                    if (potMatch2) {
+                        console.log('YouTube AI Summary: Found pot parameter in page scripts (pattern 2)');
+                        return `potc=1&pot=${encodeURIComponent(potMatch2[1])}`;
+                    }
+                    
+                    // Pattern 3: pot%3D (URL encoded)
+                    const potMatch3 = content.match(/pot%3D([^&%"'\s]+)/);
+                    if (potMatch3) {
+                        console.log('YouTube AI Summary: Found pot parameter in page scripts (pattern 3)');
+                        return `potc=1&pot=${encodeURIComponent(potMatch3[1])}`;
+                    }
+                    
+                    // Pattern 4: Look for the specific timedtext API calls with pot
+                    const timedtextMatch = content.match(/api\/timedtext[^"'\s]*[&?]pot=([^&"'\s]+)/);
+                    if (timedtextMatch) {
+                        console.log('YouTube AI Summary: Found pot parameter in timedtext URL');
+                        return `potc=1&pot=${encodeURIComponent(timedtextMatch[1])}`;
                     }
                 }
                 
-                // Try other potential window objects
-                if (window.ytplayer && window.ytplayer.config && window.ytplayer.config.args && window.ytplayer.config.args.pot) {
-                    console.log('YouTube AI Summary: Found pot parameter in ytplayer config');
-                    return `potc=1&pot=${encodeURIComponent(window.ytplayer.config.args.pot)}`;
+                // Method 3: Try to extract from window objects (only for current page)
+                try {
+                    if (window.yt && window.yt.config_ && window.yt.config_.PLAYER_CONFIG) {
+                        const config = window.yt.config_.PLAYER_CONFIG;
+                        if (config.args && config.args.pot) {
+                            console.log('YouTube AI Summary: Found pot parameter in player config');
+                            return `potc=1&pot=${encodeURIComponent(config.args.pot)}`;
+                        }
+                    }
+                    
+                    // Try other potential window objects
+                    if (window.ytplayer && window.ytplayer.config && window.ytplayer.config.args && window.ytplayer.config.args.pot) {
+                        console.log('YouTube AI Summary: Found pot parameter in ytplayer config');
+                        return `potc=1&pot=${encodeURIComponent(window.ytplayer.config.args.pot)}`;
+                    }
+                } catch (windowError) {
+                    console.log('YouTube AI Summary: Error checking window objects:', windowError.message);
                 }
-            } catch (windowError) {
-                console.log('YouTube AI Summary: Error checking window objects:', windowError.message);
             }
             
             console.log('YouTube AI Summary: Could not find auth parameters - transcript may not work');
@@ -742,7 +795,7 @@
     /**
      * Extract caption URL from player response object
      */
-    async function extractCaptionUrlFromPlayerResponse(playerResponse, videoId) {
+    async function extractCaptionUrlFromPlayerResponse(playerResponse, videoId, htmlContent = null) {
         try {
             const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
             
@@ -753,8 +806,8 @@
             
             console.log(`YouTube AI Summary: Found ${captions.length} caption tracks`);
             
-            // Extract auth parameters first
-            const authParams = await extractAuthParametersFromPage();
+            // Extract auth parameters first - use HTML content if provided, otherwise current page
+            const authParams = await extractAuthParametersFromPage(htmlContent);
             
             // Find English caption track
             const englishTrack = captions.find(track => 
