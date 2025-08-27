@@ -336,31 +336,67 @@
             
             if (authenticatedUrl) {
                 console.log('YouTube AI Summary: Found authenticated transcript URL');
+                console.log('YouTube AI Summary: URL:', authenticatedUrl.substring(0, 100) + '...');
+                
                 const response = await fetch(authenticatedUrl, {
                     headers: {
                         'User-Agent': navigator.userAgent,
-                        'Referer': window.location.href,
+                        'Referer': `https://www.youtube.com/watch?v=${videoId}`,
                         'Accept': 'application/json, text/plain, */*',
-                        'Accept-Language': 'en-US,en;q=0.9'
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Origin': 'https://www.youtube.com',
+                        'Sec-Fetch-Dest': 'empty',
+                        'Sec-Fetch-Mode': 'cors',
+                        'Sec-Fetch-Site': 'same-origin'
                     },
                     credentials: 'include'
                 });
                 
+                console.log('YouTube AI Summary: Response status:', response.status);
+                console.log('YouTube AI Summary: Response headers:', Object.fromEntries(response.headers.entries()));
+                
                 if (response.ok) {
-                    const data = await response.json();
-                    if (data && data.events) {
-                        const transcript = data.events
-                            .filter(event => event.segs)
-                            .map(event => 
-                                event.segs.map(seg => seg.utf8).join('')
-                            )
-                            .join(' ')
-                            .replace(/\s+/g, ' ')
-                            .trim();
-                        
-                        console.log('YouTube AI Summary: Transcript extracted successfully, length:', transcript.length);
-                        return transcript;
+                    const responseText = await response.text();
+                    console.log('YouTube AI Summary: Response length:', responseText.length);
+                    console.log('YouTube AI Summary: Response preview:', responseText.substring(0, 200));
+                    
+                    if (responseText.length === 0) {
+                        console.log('YouTube AI Summary: Empty response received');
+                        return null;
                     }
+                    
+                    try {
+                        const data = JSON.parse(responseText);
+                        if (data && data.events) {
+                            const transcript = data.events
+                                .filter(event => event.segs)
+                                .map(event => 
+                                    event.segs.map(seg => seg.utf8).join('')
+                                )
+                                .join(' ')
+                                .replace(/\s+/g, ' ')
+                                .trim();
+                            
+                            console.log('YouTube AI Summary: Transcript extracted successfully, length:', transcript.length);
+                            return transcript;
+                        } else {
+                            console.log('YouTube AI Summary: No events found in response data');
+                            console.log('YouTube AI Summary: Response structure:', Object.keys(data || {}));
+                        }
+                    } catch (parseError) {
+                        console.log('YouTube AI Summary: JSON parse error:', parseError.message);
+                        console.log('YouTube AI Summary: Raw response:', responseText);
+                        
+                        // Try to parse as XML (some transcripts come as XML)
+                        if (responseText.includes('<transcript>') || responseText.includes('<text')) {
+                            console.log('YouTube AI Summary: Attempting XML parsing');
+                            return parseXmlTranscript(responseText);
+                        }
+                    }
+                } else {
+                    console.log('YouTube AI Summary: HTTP error:', response.status, response.statusText);
+                    const errorText = await response.text();
+                    console.log('YouTube AI Summary: Error response:', errorText.substring(0, 200));
                 }
             }
             
@@ -535,6 +571,44 @@
             
         } catch (error) {
             console.log('YouTube AI Summary: Error extracting caption URL:', error.message);
+            return null;
+        }
+    }
+    
+    /**
+     * Parse XML transcript format
+     */
+    function parseXmlTranscript(xmlText) {
+        try {
+            console.log('YouTube AI Summary: Parsing XML transcript');
+            
+            // Parse XML manually since we might not have DOMParser in all contexts
+            const textMatches = xmlText.match(/<text[^>]*>(.*?)<\/text>/g);
+            if (textMatches) {
+                const transcript = textMatches
+                    .map(match => {
+                        // Extract text content and decode HTML entities
+                        const textContent = match.replace(/<text[^>]*>(.*?)<\/text>/, '$1');
+                        return textContent
+                            .replace(/&amp;/g, '&')
+                            .replace(/&lt;/g, '<')
+                            .replace(/&gt;/g, '>')
+                            .replace(/&quot;/g, '"')
+                            .replace(/&#39;/g, "'");
+                    })
+                    .join(' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                
+                console.log('YouTube AI Summary: XML transcript parsed, length:', transcript.length);
+                return transcript;
+            }
+            
+            console.log('YouTube AI Summary: No text elements found in XML');
+            return null;
+            
+        } catch (error) {
+            console.log('YouTube AI Summary: Error parsing XML transcript:', error.message);
             return null;
         }
     }
