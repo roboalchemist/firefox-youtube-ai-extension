@@ -4,11 +4,25 @@ A Firefox extension that adds an "Already Watched" button to YouTube video thumb
 
 ## 🎯 Features
 
+### 📺 Already Watched
 - **One-click marking**: Add videos to your "already watched" list with a single button click
 - **Automated workflow**: Automatically triggers YouTube's "Not interested" → "Tell us why" → "I've already watched this video" sequence
-- **Clean UI**: Small, unobtrusive button positioned at the bottom-left of video metadata
 - **Visual feedback**: Button changes appearance when clicked to show watched status
 - **Persistent state**: Remembers which videos you've marked as watched
+
+### 🤖 AI Video Summaries
+- **Instant summaries**: Get AI-powered summaries of any YouTube video with one click
+- **Multiple AI models**: Choose from Google Gemini, Claude, GPT-4, and more via OpenRouter
+- **Automatic transcript extraction**: Extracts video transcripts from YouTube's API
+- **Customizable prompts**: Configure your own summary style and length
+- **Modal interface**: Clean, readable popup with formatted summaries
+- **Quick actions**: Mark videos as watched directly from the summary modal
+
+### 🎨 Clean Interface
+- **Two-button layout**: Summary button (📄) on the left, watched button (✓) on the right  
+- **Bottom-positioned**: Unobtrusive placement below video metadata
+- **Visual states**: Loading indicators and hover effects
+- **Accessible**: Tooltips and keyboard-friendly design
 
 ## 🚀 Installation
 
@@ -29,8 +43,9 @@ For permanent installation, the extension needs to be signed by Mozilla. You can
 
 ## 🎮 Usage
 
+### Already Watched Feature
 1. **Visit YouTube** (any page with video thumbnails)
-2. **Look for the checkmark button** at the bottom-left of each video's metadata area
+2. **Look for the "✓" button** at the bottom-right of each video's metadata area
 3. **Click the button** to mark a video as "already watched"
 4. **The automation runs**: The extension automatically:
    - Clicks the video's 3-dot menu
@@ -38,6 +53,33 @@ For permanent installation, the extension needs to be signed by Mozilla. You can
    - Clicks "Tell us why"
    - Selects "I've already watched the video"
    - Submits the form
+
+### AI Summary Feature
+1. **Configure your API key** in the extension settings (see Configuration section below)
+2. **Look for the "📄" button** at the bottom-left of each video's metadata area
+3. **Click the button** to generate an AI summary
+4. **Wait for processing** (transcript extraction + AI generation)
+5. **Read the summary** in the popup modal
+6. **Optionally mark as watched** directly from the summary modal
+
+## ⚙️ Configuration
+
+### Setting up AI Summaries
+
+1. **Open extension settings**:
+   - Go to `about:addons` in Firefox  
+   - Find "YouTube Already Watched" extension
+   - Click "Options" or "Preferences"
+
+2. **Configure OpenRouter API**:
+   - Get an API key from [OpenRouter.ai](https://openrouter.ai/keys)
+   - Enter your API key in the settings
+   - Choose your preferred AI model (default: Google Gemini 2.0 Flash)
+
+3. **Customize summary settings**:
+   - Edit the summary prompt to match your preferences
+   - Set maximum summary length (50-1000 words)
+   - Enable/disable features as needed
 
 ## 🛠 Technical Details
 

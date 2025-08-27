@@ -30,14 +30,16 @@
      */
     function createAlreadyWatchedButton(videoId, thumbnailElement) {
         const button = document.createElement('button');
-        button.className = 'already-watched-btn';
+        button.className = 'yt-ai-button already-watched-btn';
         button.setAttribute('data-tooltip', 'Mark as already watched');
         button.setAttribute('data-video-id', videoId);
+        button.innerHTML = '✓';
         
         // Check if this video was already marked
         if (watchedVideos.has(videoId)) {
             button.classList.add('clicked');
             button.setAttribute('data-tooltip', 'Already watched');
+            button.innerHTML = '👁';
         }
         
         button.addEventListener('click', function(e) {
@@ -45,6 +47,26 @@
             e.preventDefault();
             e.stopPropagation();
             handleAlreadyWatchedClick(videoId, button);
+        });
+        
+        return button;
+    }
+    
+    /**
+     * Creates a summary button for a video
+     */
+    function createSummaryButton(videoId, thumbnailElement) {
+        const button = document.createElement('button');
+        button.className = 'yt-ai-button summary-btn';
+        button.setAttribute('data-tooltip', 'Get AI summary');
+        button.setAttribute('data-video-id', videoId);
+        button.innerHTML = '📄';
+        
+        button.addEventListener('click', function(e) {
+            console.log('YouTube AI Summary: Button clicked!', videoId);
+            e.preventDefault();
+            e.stopPropagation();
+            handleSummaryClick(videoId, button);
         });
         
         return button;
@@ -223,12 +245,338 @@
     }
     
     /**
+     * Handles the summary button click
+     */
+    async function handleSummaryClick(videoId, button) {
+        console.log('YouTube AI Summary: Starting summary for video:', videoId);
+        
+        try {
+            // Check if feature is enabled
+            const settings = await getExtensionSettings();
+            if (!settings.enableSummary) {
+                showModal('Feature Disabled', 'The summary feature is disabled. Please enable it in the extension settings.', [
+                    { text: 'Close', action: 'close', type: 'secondary' }
+                ]);
+                return;
+            }
+            
+            if (!settings.apiKey) {
+                showModal('API Key Required', 'Please configure your OpenRouter API key in the extension settings to use the summary feature.', [
+                    { text: 'Open Settings', action: () => browser.runtime.openOptionsPage(), type: 'primary' },
+                    { text: 'Close', action: 'close', type: 'secondary' }
+                ]);
+                return;
+            }
+            
+            // Show loading modal
+            const modal = showModal('🤖 Generating Summary', '', [], true);
+            updateModalContent(modal, 'loading', 'Extracting video transcript...');
+            
+            // Set button to loading state
+            button.classList.add('loading');
+            button.innerHTML = '⏳';
+            button.setAttribute('data-tooltip', 'Generating summary...');
+            
+            // Get video transcript
+            const transcript = await extractVideoTranscript(videoId);
+            if (!transcript) {
+                throw new Error('Could not extract video transcript. The video may not have captions available.');
+            }
+            
+            updateModalContent(modal, 'loading', 'Generating AI summary...');
+            
+            // Generate summary using OpenRouter API
+            const summary = await generateSummary(transcript, settings);
+            
+            // Show summary in modal
+            updateModalContent(modal, 'summary', summary, videoId);
+            
+        } catch (error) {
+            console.error('YouTube AI Summary: Error generating summary:', error);
+            showModal('❌ Summary Error', `Failed to generate summary: ${error.message}`, [
+                { text: 'Close', action: 'close', type: 'secondary' }
+            ]);
+        } finally {
+            // Reset button state
+            button.classList.remove('loading');
+            button.innerHTML = '📄';
+            button.setAttribute('data-tooltip', 'Get AI summary');
+        }
+    }
+    
+    /**
+     * Extract video transcript from YouTube
+     */
+    async function extractVideoTranscript(videoId) {
+        try {
+            console.log('YouTube AI Summary: Extracting transcript for video:', videoId);
+            
+            // Try to get transcript from YouTube's internal API
+            const response = await fetch(`https://www.youtube.com/api/timedtext?lang=en&v=${videoId}&fmt=json3`);
+            
+            if (!response.ok) {
+                // Try alternative transcript extraction methods
+                return await extractTranscriptFromPage(videoId);
+            }
+            
+            const data = await response.json();
+            if (data && data.events) {
+                const transcript = data.events
+                    .filter(event => event.segs)
+                    .map(event => 
+                        event.segs.map(seg => seg.utf8).join('')
+                    )
+                    .join(' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                
+                console.log('YouTube AI Summary: Transcript extracted successfully, length:', transcript.length);
+                return transcript;
+            }
+            
+            throw new Error('No transcript data found');
+            
+        } catch (error) {
+            console.log('YouTube AI Summary: Transcript extraction failed:', error.message);
+            return null;
+        }
+    }
+    
+    /**
+     * Alternative transcript extraction from page elements
+     */
+    async function extractTranscriptFromPage(videoId) {
+        try {
+            // Try to find transcript elements on the page
+            const transcriptButtons = document.querySelectorAll('[aria-label*="transcript"], [aria-label*="Transcript"]');
+            
+            if (transcriptButtons.length > 0) {
+                // Click transcript button and wait for content
+                transcriptButtons[0].click();
+                
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Look for transcript text
+                const transcriptElements = document.querySelectorAll('[class*="transcript"], [data-target-id*="transcript"]');
+                
+                if (transcriptElements.length > 0) {
+                    const transcript = Array.from(transcriptElements)
+                        .map(el => el.textContent)
+                        .join(' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    
+                    if (transcript.length > 100) {
+                        return transcript;
+                    }
+                }
+            }
+            
+            return null;
+            
+        } catch (error) {
+            console.log('YouTube AI Summary: Page transcript extraction failed:', error.message);
+            return null;
+        }
+    }
+    
+    /**
+     * Generate summary using OpenRouter API
+     */
+    async function generateSummary(transcript, settings) {
+        console.log('YouTube AI Summary: Generating summary with model:', settings.model);
+        
+        const prompt = `${settings.summaryPrompt}\n\nTranscript:\n${transcript}`;
+        
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${settings.apiKey}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'YouTube Already Watched Extension'
+            },
+            body: JSON.stringify({
+                model: settings.model,
+                messages: [
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                max_tokens: Math.min(settings.maxLength * 2, 4000),
+                temperature: 0.7
+            })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API request failed: ${response.status} ${errorText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.choices && data.choices[0] && data.choices[0].message) {
+            return data.choices[0].message.content.trim();
+        }
+        
+        throw new Error('Invalid response format from API');
+    }
+    
+    /**
+     * Get extension settings from storage
+     */
+    async function getExtensionSettings() {
+        try {
+            const defaults = {
+                enableSummary: true,
+                apiKey: '',
+                model: 'google/gemini-2.0-flash-exp',
+                summaryPrompt: 'Please provide a concise and informative summary of this video transcript. Focus on the main points, key insights, and important information.',
+                maxLength: 300,
+                autoExtractTranscript: true
+            };
+            
+            const settings = await browser.storage.sync.get(defaults);
+            return settings;
+            
+        } catch (error) {
+            console.error('YouTube AI Summary: Error loading settings:', error);
+            return {
+                enableSummary: false,
+                apiKey: '',
+                model: 'google/gemini-2.0-flash-exp',
+                summaryPrompt: 'Please provide a concise summary of this video.',
+                maxLength: 300,
+                autoExtractTranscript: true
+            };
+        }
+    }
+    
+    /**
+     * Show modal dialog
+     */
+    function showModal(title, content, buttons = [], loading = false) {
+        // Remove existing modal
+        const existingModal = document.querySelector('.yt-ai-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        const modal = document.createElement('div');
+        modal.className = 'yt-ai-modal';
+        modal.innerHTML = `
+            <div class="yt-ai-modal-content">
+                <div class="yt-ai-modal-header">
+                    <h3 class="yt-ai-modal-title">${title}</h3>
+                    <button class="yt-ai-modal-close">×</button>
+                </div>
+                <div class="yt-ai-modal-body">
+                    ${loading ? '<div class="yt-ai-loading"><div class="yt-ai-spinner"></div><p>Loading...</p></div>' : content}
+                </div>
+                <div class="yt-ai-modal-footer">
+                    ${buttons.map(btn => 
+                        `<button class="yt-ai-modal-button ${btn.type || 'secondary'}" data-action="${btn.action || 'close'}">${btn.text}</button>`
+                    ).join('')}
+                </div>
+            </div>
+        `;
+        
+        // Add event listeners
+        modal.querySelector('.yt-ai-modal-close').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+        
+        // Handle button clicks
+        modal.querySelectorAll('.yt-ai-modal-button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.getAttribute('data-action');
+                if (action === 'close') {
+                    modal.remove();
+                } else if (typeof action === 'function') {
+                    action();
+                    modal.remove();
+                }
+            });
+        });
+        
+        document.body.appendChild(modal);
+        return modal;
+    }
+    
+    /**
+     * Update modal content
+     */
+    function updateModalContent(modal, type, content, videoId = null) {
+        const body = modal.querySelector('.yt-ai-modal-body');
+        const footer = modal.querySelector('.yt-ai-modal-footer');
+        
+        if (type === 'loading') {
+            body.innerHTML = `
+                <div class="yt-ai-loading">
+                    <div class="yt-ai-spinner"></div>
+                    <p>${content}</p>
+                </div>
+            `;
+            footer.innerHTML = '';
+        } else if (type === 'summary') {
+            body.innerHTML = `<div class="yt-ai-summary">${formatSummary(content)}</div>`;
+            footer.innerHTML = `
+                <button class="yt-ai-modal-button secondary" data-action="close">Close</button>
+                <button class="yt-ai-modal-button primary" data-action="mark-watched">Mark as Watched</button>
+            `;
+            
+            // Add mark as watched functionality
+            const markWatchedBtn = footer.querySelector('[data-action="mark-watched"]');
+            if (markWatchedBtn && videoId) {
+                markWatchedBtn.addEventListener('click', () => {
+                    // Find the already watched button for this video
+                    const watchedButton = document.querySelector(`[data-video-id="${videoId}"].already-watched-btn`);
+                    if (watchedButton) {
+                        handleAlreadyWatchedClick(videoId, watchedButton);
+                    }
+                    modal.remove();
+                });
+            }
+        } else if (type === 'error') {
+            body.innerHTML = `<div class="yt-ai-error">${content}</div>`;
+            footer.innerHTML = '<button class="yt-ai-modal-button secondary" data-action="close">Close</button>';
+        }
+        
+        // Re-bind close handlers
+        const closeBtn = footer.querySelector('[data-action="close"]');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => modal.remove());
+        }
+    }
+    
+    /**
+     * Format summary content with basic markdown-like formatting
+     */
+    function formatSummary(text) {
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+            .replace(/^\- (.*$)/gm, '<li>$1</li>')
+            .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/^(.*)$/gm, '<p>$1</p>')
+            .replace(/<p><\/p>/g, '')
+            .replace(/<p>(<h[1-3]>)/g, '$1')
+            .replace(/(<\/h[1-3]>)<\/p>/g, '$1');
+    }
+    
+    /**
      * Adds button to a single video container
      */
     function addButtonToVideoContainer(containerElement) {
-        // Skip if button already exists
-        if (containerElement.querySelector('.already-watched-btn')) {
-            console.log('YouTube Already Watched: Button already exists, skipping container');
+        // Skip if buttons already exist
+        if (containerElement.querySelector('.yt-ai-button')) {
+            console.log('YouTube Already Watched: Buttons already exist, skipping container');
             return;
         }
         
@@ -289,11 +637,17 @@
         }
         
                     // Create and add the button
-            console.log('YouTube Already Watched: Creating button for video:', videoId);
-            const button = createAlreadyWatchedButton(videoId, attachmentArea);
-            console.log('YouTube Already Watched: Button created, adding to DOM...');
-            attachmentArea.appendChild(button);
-            console.log('YouTube Already Watched: Button added for video:', videoId);
+            console.log('YouTube Already Watched: Creating buttons for video:', videoId);
+            
+            // Create summary button (left side)
+            const summaryButton = createSummaryButton(videoId, attachmentArea);
+            attachmentArea.appendChild(summaryButton);
+            
+            // Create already watched button (right side)
+            const watchedButton = createAlreadyWatchedButton(videoId, attachmentArea);
+            attachmentArea.appendChild(watchedButton);
+            
+            console.log('YouTube Already Watched: Buttons added for video:', videoId);
     }
     
     /**

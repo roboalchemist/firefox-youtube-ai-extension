@@ -1,8 +1,7 @@
-/* Already Watched Button Styling */
-.already-watched-btn {
+/* YouTube AI Extension Button Styles */
+.yt-ai-button {
   position: absolute;
   bottom: -60px;
-  left: 4px;
   width: 24px;
   height: 24px;
   background: rgba(0, 0, 0, 0.8);
@@ -16,7 +15,38 @@
   transition: all 0.2s ease;
   opacity: 1;
   pointer-events: auto;
-  margin-left: 8px; /* Space from adjacent elements */
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.yt-ai-button:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.1);
+}
+
+/* Already Watched Button */
+.already-watched-btn {
+  left: 32px; /* Moved to the right to make space for summary button */
+}
+
+/* Summary Button */
+.summary-btn {
+  left: 4px;
+  background: rgba(25, 118, 210, 0.8); /* Blue background for summary */
+}
+
+.summary-btn:hover {
+  background: rgba(25, 118, 210, 0.9);
+}
+
+.summary-btn.loading {
+  background: rgba(255, 152, 0, 0.8); /* Orange when loading */
+}
+
+.summary-btn.loading:hover {
+  background: rgba(255, 152, 0, 0.9);
 }
 
 .already-watched-btn:hover {
@@ -32,28 +62,9 @@
   background: #0d7377;
 }
 
-/* Icon styling - using a checkmark/eye icon */
-.already-watched-btn::before {
-  content: "✓";
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-}
+/* Icons are now set via innerHTML in JS, remove CSS content */
 
-.already-watched-btn.clicked::before {
-  content: "👁";
-  font-size: 10px;
-}
-
-/* Show button on hover of video container */
-ytd-rich-item-renderer:hover .already-watched-btn,
-ytd-compact-video-renderer:hover .already-watched-btn,
-ytd-grid-video-renderer:hover .already-watched-btn,
-.ytd-rich-grid-media:hover .already-watched-btn,
-#dismissible:hover .already-watched-btn {
-  opacity: 1;
-  pointer-events: auto;
-}
+/* Buttons are now permanently visible, remove hover logic */
 
 /* Ensure video thumbnails and containers have relative positioning */
 ytd-thumbnail,
@@ -92,4 +103,175 @@ yt-lockup-metadata-view-model {
   border: 4px solid transparent;
   border-top-color: rgba(0, 0, 0, 0.9);
   z-index: 1001;
+}
+
+/* Modal Styles */
+.yt-ai-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.yt-ai-modal-content {
+  background: white;
+  border-radius: 8px;
+  max-width: 700px;
+  max-height: 80vh;
+  width: 100%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.yt-ai-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8f9fa;
+}
+
+.yt-ai-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.yt-ai-modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.yt-ai-modal-close:hover {
+  background: #e9ecef;
+  color: #333;
+}
+
+.yt-ai-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.yt-ai-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: #f8f9fa;
+}
+
+.yt-ai-modal-button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.yt-ai-modal-button.primary {
+  background: #1976d2;
+  color: white;
+}
+
+.yt-ai-modal-button.primary:hover {
+  background: #1565c0;
+}
+
+.yt-ai-modal-button.secondary {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.yt-ai-modal-button.secondary:hover {
+  background: #d5d5d5;
+}
+
+/* Loading state */
+.yt-ai-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.yt-ai-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #1976d2;
+  border-radius: 50%;
+  animation: yt-ai-spin 1s linear infinite;
+}
+
+@keyframes yt-ai-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Summary content styling */
+.yt-ai-summary {
+  line-height: 1.6;
+  color: #333;
+}
+
+.yt-ai-summary h1, .yt-ai-summary h2, .yt-ai-summary h3 {
+  color: #1976d2;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.yt-ai-summary h1:first-child, .yt-ai-summary h2:first-child, .yt-ai-summary h3:first-child {
+  margin-top: 0;
+}
+
+.yt-ai-summary p {
+  margin-bottom: 12px;
+}
+
+.yt-ai-summary ul, .yt-ai-summary ol {
+  margin: 12px 0;
+  padding-left: 20px;
+}
+
+.yt-ai-summary li {
+  margin-bottom: 6px;
+}
+
+.yt-ai-error {
+  color: #d32f2f;
+  background: #ffebee;
+  padding: 16px;
+  border-radius: 4px;
+  border-left: 4px solid #d32f2f;
 }

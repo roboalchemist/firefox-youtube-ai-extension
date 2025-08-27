@@ -1,6 +1,3 @@
-I want to create a firefox extension to make youtube.com more like I would like.
+[x] I want to create a firefox extension to make youtube.com more like I would like. Instead of going through the sub-menu on each video on the home page to select "Not Interested" and then have to select "Tell us why" to select I've already watched this video", I want a button in the lower-right hand area of the video box that lets me select "already watched" with just an icon. It should have tool-tip to idicate what it means.
 
-Instead of going through the sub-menu on each video on the home page to select "Not Interested" and then have to select "Tell us why" to select I've already watched this video", I want a button in the lower-right hand area of the video box that lets me select "already watched" with just an icon. It should have tool-tip to idicate what it means.
-
-
-
+[ ] I want to add another button to the left of the mark as watched that opens up a modal to present a summary of a video. The summary is generated via a summary prompt (from the extension setup page) using the openrouter api. The transcript of the video is extracted from the site and fed to the model after the prompt. I'll need to be able to add and store an https://openrouter.ai. key. I should also be able to specify the model (default is `google/gemini-2.5-flash-lite`). It should show the summary results in a modal popup box that include the ability to mark the video as watched.
