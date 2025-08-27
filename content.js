@@ -325,39 +325,132 @@
     }
     
     /**
-     * Extract video transcript from YouTube
+     * Extract video transcript from YouTube using the authenticated API
      */
     async function extractVideoTranscript(videoId) {
         try {
             console.log('YouTube AI Summary: Extracting transcript for video:', videoId);
             
-            // Try to get transcript from YouTube's internal API
-            const response = await fetch(`https://www.youtube.com/api/timedtext?lang=en&v=${videoId}&fmt=json3`);
+            // First, try to get the authenticated transcript URL from the page
+            const authenticatedUrl = await getAuthenticatedTranscriptUrl(videoId);
             
-            if (!response.ok) {
-                // Try alternative transcript extraction methods
-                return await extractTranscriptFromPage(videoId);
-            }
-            
-            const data = await response.json();
-            if (data && data.events) {
-                const transcript = data.events
-                    .filter(event => event.segs)
-                    .map(event => 
-                        event.segs.map(seg => seg.utf8).join('')
-                    )
-                    .join(' ')
-                    .replace(/\s+/g, ' ')
-                    .trim();
+            if (authenticatedUrl) {
+                console.log('YouTube AI Summary: Found authenticated transcript URL');
+                const response = await fetch(authenticatedUrl, {
+                    headers: {
+                        'User-Agent': navigator.userAgent,
+                        'Referer': window.location.href,
+                        'Accept': 'application/json, text/plain, */*',
+                        'Accept-Language': 'en-US,en;q=0.9'
+                    },
+                    credentials: 'include'
+                });
                 
-                console.log('YouTube AI Summary: Transcript extracted successfully, length:', transcript.length);
-                return transcript;
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.events) {
+                        const transcript = data.events
+                            .filter(event => event.segs)
+                            .map(event => 
+                                event.segs.map(seg => seg.utf8).join('')
+                            )
+                            .join(' ')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                        
+                        console.log('YouTube AI Summary: Transcript extracted successfully, length:', transcript.length);
+                        return transcript;
+                    }
+                }
             }
             
-            throw new Error('No transcript data found');
+            // Fallback to page-based extraction
+            console.log('YouTube AI Summary: Falling back to page-based extraction');
+            return await extractTranscriptFromPage(videoId);
             
         } catch (error) {
             console.log('YouTube AI Summary: Transcript extraction failed:', error.message);
+            return await extractTranscriptFromPage(videoId);
+        }
+    }
+    
+    /**
+     * Get the authenticated transcript URL from the current YouTube page
+     */
+    async function getAuthenticatedTranscriptUrl(videoId) {
+        try {
+            // Look for ytInitialPlayerResponse in the page scripts
+            const scripts = document.querySelectorAll('script');
+            
+            for (const script of scripts) {
+                if (script.textContent && script.textContent.includes('ytInitialPlayerResponse')) {
+                    const text = script.textContent;
+                    
+                    // Extract the ytInitialPlayerResponse object
+                    const match = text.match(/var ytInitialPlayerResponse = ({.*?});/);
+                    if (match) {
+                        try {
+                            const playerResponse = JSON.parse(match[1]);
+                            const captions = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+                            
+                            if (captions && captions.length > 0) {
+                                // Find English caption track
+                                const englishTrack = captions.find(track => 
+                                    track.languageCode === 'en' || 
+                                    track.languageCode === 'en-US' ||
+                                    (track.name?.simpleText && track.name.simpleText.toLowerCase().includes('english'))
+                                );
+                                
+                                if (englishTrack && englishTrack.baseUrl) {
+                                    // Add format parameter for JSON output
+                                    const url = new URL(englishTrack.baseUrl);
+                                    url.searchParams.set('fmt', 'json3');
+                                    return url.toString();
+                                }
+                                
+                                // If no English track, try the first available track
+                                if (captions[0] && captions[0].baseUrl) {
+                                    const url = new URL(captions[0].baseUrl);
+                                    url.searchParams.set('fmt', 'json3');
+                                    return url.toString();
+                                }
+                            }
+                        } catch (parseError) {
+                            console.log('YouTube AI Summary: Error parsing player response:', parseError.message);
+                        }
+                    }
+                    break;
+                }
+            }
+            
+            // Alternative: check if we're on a video page and try to navigate to get the data
+            if (window.location.pathname === '/watch') {
+                const urlParams = new URLSearchParams(window.location.search);
+                const currentVideoId = urlParams.get('v');
+                
+                if (currentVideoId === videoId) {
+                    // We're on the right video page, try to extract from window data
+                    if (window.ytInitialPlayerResponse) {
+                        const captions = window.ytInitialPlayerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+                        if (captions && captions.length > 0) {
+                            const englishTrack = captions.find(track => 
+                                track.languageCode === 'en' || track.languageCode === 'en-US'
+                            );
+                            
+                            if (englishTrack && englishTrack.baseUrl) {
+                                const url = new URL(englishTrack.baseUrl);
+                                url.searchParams.set('fmt', 'json3');
+                                return url.toString();
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return null;
+            
+        } catch (error) {
+            console.log('YouTube AI Summary: Error getting authenticated URL:', error.message);
             return null;
         }
     }
