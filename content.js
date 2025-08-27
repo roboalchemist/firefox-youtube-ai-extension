@@ -308,8 +308,8 @@
             modal.setAttribute('data-transcript', transcript);
             modal.setAttribute('data-summary', summary);
             
-            // Show summary in modal
-            updateModalContent(modal, 'summary', summary, videoId);
+            // Show summary with collapsed transcript
+            updateModalContent(modal, 'summary-with-transcript', { summary, transcript }, videoId);
             
         } catch (error) {
             console.error('YouTube AI Summary: Error generating summary:', error);
@@ -960,6 +960,56 @@
                     if (transcript) {
                         updateModalContent(modal, 'transcript-only', transcript);
                     }
+                });
+            }
+        } else if (type === 'summary-with-transcript') {
+            const { summary, transcript } = content;
+            const truncatedTranscript = transcript.length > 500 ? transcript.substring(0, 500) + '...' : transcript;
+            
+            body.innerHTML = `
+                <div class="yt-ai-summary">${formatSummary(summary)}</div>
+                
+                <div class="yt-ai-transcript-section">
+                    <div class="transcript-header" onclick="toggleTranscript(this)">
+                        <span class="transcript-toggle">▶</span>
+                        <span class="transcript-title">📜 Source Transcript</span>
+                        <span class="transcript-info">(${transcript.length} characters)</span>
+                    </div>
+                    <div class="transcript-content-collapsed" style="display: none;">
+                        ${escapeHtml(transcript)}
+                    </div>
+                </div>
+            `;
+            
+            footer.innerHTML = `
+                <button class="yt-ai-modal-button secondary" data-action="close">Close</button>
+                <button class="yt-ai-modal-button primary" data-action="mark-watched">Mark as Watched</button>
+            `;
+            
+            // Add toggle transcript functionality
+            window.toggleTranscript = function(header) {
+                const content = header.nextElementSibling;
+                const toggle = header.querySelector('.transcript-toggle');
+                
+                if (content.style.display === 'none') {
+                    content.style.display = 'block';
+                    toggle.textContent = '▼';
+                } else {
+                    content.style.display = 'none';
+                    toggle.textContent = '▶';
+                }
+            };
+            
+            // Add mark as watched functionality
+            const markWatchedBtn = footer.querySelector('[data-action="mark-watched"]');
+            if (markWatchedBtn && videoId) {
+                markWatchedBtn.addEventListener('click', () => {
+                    // Find the already watched button for this video
+                    const watchedButton = document.querySelector(`[data-video-id="${videoId}"].already-watched-btn`);
+                    if (watchedButton) {
+                        handleAlreadyWatchedClick(videoId, watchedButton);
+                    }
+                    modal.remove();
                 });
             }
         } else if (type === 'transcript-only') {

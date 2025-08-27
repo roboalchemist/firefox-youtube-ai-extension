@@ -322,3 +322,76 @@ yt-lockup-metadata-view-model {
 .transcript-content::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* Collapsible transcript section */
+.yt-ai-transcript-section {
+  margin-top: 24px;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.transcript-header {
+  background: #f8f9fa;
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s ease;
+  user-select: none;
+}
+
+.transcript-header:hover {
+  background: #e9ecef;
+}
+
+.transcript-toggle {
+  font-size: 12px;
+  color: #666;
+  transition: transform 0.2s ease;
+  width: 12px;
+  text-align: center;
+}
+
+.transcript-title {
+  font-weight: 500;
+  color: #333;
+  flex: 1;
+}
+
+.transcript-info {
+  font-size: 12px;
+  color: #666;
+}
+
+.transcript-content-collapsed {
+  padding: 16px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.transcript-content-collapsed::-webkit-scrollbar {
+  width: 8px;
+}
+
+.transcript-content-collapsed::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.transcript-content-collapsed::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.transcript-content-collapsed::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
