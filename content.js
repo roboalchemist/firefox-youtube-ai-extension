@@ -431,7 +431,7 @@
             const defaults = {
                 enableSummary: true,
                 apiKey: '',
-                model: 'google/gemini-2.0-flash-exp',
+                model: 'google/gemini-2.5-flash-lite',
                 summaryPrompt: 'Please provide a concise and informative summary of this video transcript. Focus on the main points, key insights, and important information.',
                 maxLength: 300,
                 autoExtractTranscript: true
@@ -445,7 +445,7 @@
             return {
                 enableSummary: false,
                 apiKey: '',
-                model: 'google/gemini-2.0-flash-exp',
+                model: 'google/gemini-2.5-flash-lite',
                 summaryPrompt: 'Please provide a concise summary of this video.',
                 maxLength: 300,
                 autoExtractTranscript: true

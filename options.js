@@ -6,7 +6,7 @@
 // Default settings
 const DEFAULT_SETTINGS = {
     apiKey: '',
-    model: 'google/gemini-2.0-flash-exp',
+    model: 'google/gemini-2.5-flash-lite',
     summaryPrompt: 'Please provide a concise and informative summary of this video transcript. Focus on the main points, key insights, and important information. Structure the summary with clear sections if the video covers multiple topics. Keep it engaging and easy to understand.',
     maxLength: 300,
     enableSummary: true,

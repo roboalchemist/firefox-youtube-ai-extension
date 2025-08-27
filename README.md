@@ -66,15 +66,14 @@ For permanent installation, the extension needs to be signed by Mozilla. You can
 
 ### Setting up AI Summaries
 
-1. **Open extension settings**:
-   - Go to `about:addons` in Firefox  
-   - Find "YouTube Already Watched" extension
-   - Click "Options" or "Preferences"
+1. **Open extension settings** (multiple ways):
+   - **Browser icon**: Click the extension icon in the Firefox toolbar and select "Open Settings"
+   - **Add-ons page**: Go to `about:addons` → Find "YouTube Already Watched" → Click "Options"
 
 2. **Configure OpenRouter API**:
    - Get an API key from [OpenRouter.ai](https://openrouter.ai/keys)
    - Enter your API key in the settings
-   - Choose your preferred AI model (default: Google Gemini 2.0 Flash)
+   - Choose your preferred AI model (default: Google Gemini 2.5 Flash Lite)
 
 3. **Customize summary settings**:
    - Edit the summary prompt to match your preferences
